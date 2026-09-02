@@ -1,0 +1,93 @@
+name: ddX PR 184 Windows test
+
+on:
+  push:
+    branches:
+      - test-ddx-pr184
+
+env:
+  BUILD_DIR: _build
+
+jobs:
+  mingw-meson-build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup MSYS2 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            git
+            mingw-w64-x86_64-gcc-fortran
+            mingw-w64-x86_64-openblas
+            mingw-w64-x86_64-lapack
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-python-pip
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-ninja
+      - name: Configure build
+        run: meson setup ${{ env.BUILD_DIR }} -Dlapack=netlib --warnlevel=0
+        env:
+          FC: gfortran
+          CC: gcc
+      - name: Build project
+        run: meson compile -C ${{ env.BUILD_DIR }}
+      - name: Run unit tests
+        run: meson test -C ${{ env.BUILD_DIR }} --print-errorlogs --no-rebuild -t 120 --suite xtb
+        env:
+          OMP_NUM_THREADS: 1
+
+  mingw-meson-static-build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup MSYS2 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            git
+            mingw-w64-x86_64-gcc-fortran
+            mingw-w64-x86_64-lapack
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-python-pip
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-ntldd
+            zip
+      - name: Configure build (static)
+        run: >-
+          meson setup ${{ env.BUILD_DIR }}
+          --prefix="$PWD/xtb-bleed-windows"
+          --libdir=lib
+          -Ddefault_library=static
+          -Dlapack=netlib
+          -Db_lto=false
+          --buildtype release
+          --optimization 2
+          --warnlevel=0
+        env:
+          CC: gcc
+          FC: gfortran
+          PKG_CONFIG_ALL_STATIC: "1"
+          CFLAGS: "-fno-strict-aliasing"
+          FFLAGS: "-fno-strict-aliasing"
+          LDFLAGS: "-static -static-libgcc -static-libgfortran -static-libstdc++ -Wl,--as-needed -lquadmath"
+      - name: Build project
+        run: meson compile -C ${{ env.BUILD_DIR }}
+      - name: Run unit tests
+        run: meson test -C ${{ env.BUILD_DIR }} --print-errorlogs --no-rebuild -t 120 --suite xtb
+        env:
+          OMP_NUM_THREADS: 2
