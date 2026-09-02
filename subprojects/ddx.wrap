@@ -1,0 +1,4 @@
+[wrap-git]
+directory = ddx
+url = https://github.com/ddsolvation/ddX.git
+revision = 581354a15946b3bae762bb192d4f4521f67d882c
